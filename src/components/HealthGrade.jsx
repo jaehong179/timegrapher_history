@@ -7,7 +7,7 @@ const GRADE_CONFIG = {
   WARNING:   { label: '주의', color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  desc: '내부 정밀 검사 권장.' },
 }
 
-export default function HealthGrade({ grade, watchId, recordCount, lastMeasured }) {
+export default function HealthGrade({ grade, watchId, recordCount, lastMeasured, lastEngineer }) {
   const cfg = GRADE_CONFIG[grade] || GRADE_CONFIG.HEALTHY
   const lastDate = lastMeasured
     ? new Date(lastMeasured).toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })
@@ -48,6 +48,7 @@ export default function HealthGrade({ grade, watchId, recordCount, lastMeasured 
         </div>
         <div style={{ fontSize: 11, color: '#475569', marginBottom: 10 }}>
           최근 측정: {lastDate} &nbsp;·&nbsp; 총 {recordCount}건
+          {lastEngineer && <span> &nbsp;·&nbsp; 담당: {lastEngineer}</span>}
         </div>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,

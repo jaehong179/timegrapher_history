@@ -1,15 +1,13 @@
-// ── API Config ────────────────────────────────────────────────────────────────
 export const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   'https://i5dhq7t6fb.execute-api.us-east-1.amazonaws.com/default/timegrapher_api'
 
-// Standard defaults (not in API response — applied client-side)
 export const DEFAULTS = {
   critical_threshold_amplitude: 220,
   baseline_amplitude: 290,
+  min_projection_days: 30,   // 이 기간 미만이면 오버홀 예측 안 함
 }
 
-// Position code labels
 export const POSITION_LABELS = {
   DU: 'Dial Up',
   DD: 'Dial Down',
@@ -19,78 +17,89 @@ export const POSITION_LABELS = {
   CR: 'Crown Right',
 }
 
-// ── Mock data (matches real API response format) ──────────────────────────────
+// ── Mock (DEMO 전용) ──────────────────────────────────────────────────────────
 const MOCK_HISTORY = [
   {
-    watch_id: 'DEMO-3235',
+    watch_id: 'DEMO-3235', engineer: '박기사', comment: '오버홀 1년 차 점검.',
     measured_at: '2025-05-02T10:14:00+00:00',
-    engineer: '박기사',
-    comment: '오버홀 1년 차 점검. 상태 매우 양호함.',
     measurements: {
       DU: { rate: 1.2,  amplitude: 285, beat_error: 0.1 },
       DD: { rate: 0.8,  amplitude: 283, beat_error: 0.1 },
       CU: { rate: -0.5, amplitude: 270, beat_error: 0.2 },
       CD: { rate: -0.8, amplitude: 260, beat_error: 0.2 },
       CL: { rate: 0.3,  amplitude: 275, beat_error: 0.1 },
+      CR: { rate: 0.1,  amplitude: 278, beat_error: 0.1 },
     }
   },
   {
-    watch_id: 'DEMO-3235',
+    watch_id: 'DEMO-3235', engineer: '박기사', comment: '자성 유입 의심. 자성제거기 사용 후 재측정 완료.',
     measured_at: '2025-08-15T14:22:00+00:00',
-    engineer: '박기사',
-    comment: '자성 유입 의심. 자성제거기 사용 후 재측정 완료.',
     measurements: {
       DU: { rate: 14.2, amplitude: 278, beat_error: 0.1 },
       DD: { rate: 13.8, amplitude: 276, beat_error: 0.2 },
       CU: { rate: 12.1, amplitude: 265, beat_error: 0.3 },
       CD: { rate: 13.5, amplitude: 258, beat_error: 0.3 },
       CL: { rate: 12.9, amplitude: 270, beat_error: 0.2 },
+      CR: { rate: 11.5, amplitude: 272, beat_error: 0.2 },
     }
   },
   {
-    watch_id: 'DEMO-3235',
+    watch_id: 'DEMO-3235', engineer: '박기사', comment: '겨울철 기온 저하로 인한 오일 점도 변화.',
     measured_at: '2025-12-10T09:05:00+00:00',
-    engineer: '박기사',
-    comment: '겨울철 기온 저하로 인한 미세한 오일 점도 변화.',
     measurements: {
       DU: { rate: 2.1,  amplitude: 270, beat_error: 0.1 },
       DD: { rate: 1.9,  amplitude: 268, beat_error: 0.1 },
       CU: { rate: -1.0, amplitude: 255, beat_error: 0.2 },
       CD: { rate: -1.3, amplitude: 248, beat_error: 0.2 },
       CL: { rate: 0.5,  amplitude: 262, beat_error: 0.1 },
+      CR: { rate: 0.8,  amplitude: 264, beat_error: 0.1 },
     }
   },
   {
-    watch_id: 'DEMO-3235',
+    watch_id: 'DEMO-3235', engineer: '김기사', comment: '진각이 조금 떨어졌으나 일오차는 양호.',
     measured_at: '2026-06-19T15:30:00+00:00',
-    engineer: '김기사',
-    comment: '진각이 조금 떨어졌으나 일오차는 여전히 칼 같음.',
     measurements: {
       DU: { rate: 1.0,  amplitude: 255, beat_error: 0.1 },
       DD: { rate: 0.9,  amplitude: 253, beat_error: 0.1 },
       CU: { rate: -1.5, amplitude: 235, beat_error: 0.2 },
       CD: { rate: -1.8, amplitude: 230, beat_error: 0.2 },
       CL: { rate: 0.2,  amplitude: 245, beat_error: 0.1 },
+      CR: { rate: 0.4,  amplitude: 248, beat_error: 0.1 },
     }
   }
 ]
 
-// ── Normalize a raw API record into a summary + positions ────────────────────
-// Primary position for summary: DU → DD → first available
+// ── normalize: 요약값 + 이상감지 플래그 추가 ──────────────────────────────────
 export function normalize(record) {
-  const m = record.measurements || {}
-  const primary = m.DU || m.DD || Object.values(m)[0] || {}
+  const m   = record.measurements || {}
+  const pos = Object.values(m)
+  if (pos.length === 0) return { ...record, summary: { rate: null, amplitude: null, beat_error: null }, maxAbsRate: 0, avgAmplitude: null }
+
+  // DU 우선, 없으면 DD, 없으면 첫 번째
+  const primary = m.DU || m.DD || pos[0]
+
+  // 전 자세 평균 진각
+  const avgAmplitude = pos.reduce((s, p) => s + (p.amplitude ?? 0), 0) / pos.length
+
+  // 전 자세 최대 절댓값 일오차 (이상감지용)
+  const maxAbsRate = pos.reduce((max, p) => Math.max(max, Math.abs(p.rate ?? 0)), 0)
+
+  // 전 자세 최대 비트오차
+  const maxBeatError = pos.reduce((max, p) => Math.max(max, p.beat_error ?? 0), 0)
+
   return {
     ...record,
     summary: {
-      rate:        primary.rate        ?? null,
-      amplitude:   primary.amplitude   ?? null,
-      beat_error:  primary.beat_error  ?? null,
-    }
+      rate:       primary.rate       ?? null,
+      amplitude:  parseFloat(avgAmplitude.toFixed(1)),
+      beat_error: parseFloat(maxBeatError.toFixed(2)),
+    },
+    maxAbsRate,
+    avgAmplitude: parseFloat(avgAmplitude.toFixed(1)),
   }
 }
 
-// ── Linear regression ────────────────────────────────────────────────────────
+// ── Linear regression ─────────────────────────────────────────────────────────
 export function linearRegression(points) {
   const n = points.length
   if (n < 2) return null
@@ -99,49 +108,57 @@ export function linearRegression(points) {
   const sumXY = points.reduce((s, p) => s + p.x * p.y, 0)
   const sumX2 = points.reduce((s, p) => s + p.x * p.x, 0)
   const denom = n * sumX2 - sumX * sumX
-  if (denom === 0) return null
+  if (Math.abs(denom) < 1e-10) return null
   const slope     = (n * sumXY - sumX * sumY) / denom
   const intercept = (sumY - slope * sumX) / n
   return { slope, intercept }
 }
 
 export function projectOverhaulDate(records, threshold) {
+  if (records.length < 2) return null
+
+  // 기간 확인: 최소 30일 이상 데이터가 있어야 예측
+  const times = records.map(r => new Date(r.measured_at).getTime())
+  const spanDays = (Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24)
+  if (spanDays < DEFAULTS.min_projection_days) return null
+
   const points = records.map(r => ({
     x: new Date(r.measured_at).getTime(),
-    y: r.summary.amplitude
+    y: r.avgAmplitude ?? r.summary?.amplitude
   })).filter(p => p.y != null)
-  if (points.length < 2) return null
+
   const reg = linearRegression(points)
   if (!reg || reg.slope >= 0) return null
   const ms = (threshold - reg.intercept) / reg.slope
-  const d = new Date(ms)
-  // Only return future dates within 10 years
   const now = Date.now()
-  if (ms < now || ms > now + 10 * 365 * 24 * 3600 * 1000) return null
-  return d
+  if (ms < now || ms > now + 10 * 365.25 * 24 * 3600 * 1000) return null
+  return new Date(ms)
 }
 
 export function monthlyDecayRate(records) {
+  if (records.length < 2) return null
+  const times = records.map(r => new Date(r.measured_at).getTime())
+  const spanDays = (Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24)
+  if (spanDays < 7) return null   // 7일 미만 데이터로는 의미 없음
+
   const points = records.map(r => ({
     x: new Date(r.measured_at).getTime(),
-    y: r.summary.amplitude
+    y: r.avgAmplitude ?? r.summary?.amplitude
   })).filter(p => p.y != null)
-  if (points.length < 2) return null
+
   const reg = linearRegression(points)
   if (!reg) return null
   const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.44
   return Math.abs(reg.slope * MS_PER_MONTH)
 }
 
-// ── Fetch ────────────────────────────────────────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 export async function fetchWatchHistory(watchId) {
   const isDemo = !watchId || watchId.toUpperCase().startsWith('DEMO')
-
   if (isDemo) {
-    await new Promise(r => setTimeout(r, 500))
+    await new Promise(r => setTimeout(r, 400))
     return MOCK_HISTORY.map(normalize)
   }
-
   const url = `${BASE_URL}?watch_id=${encodeURIComponent(watchId)}`
   const res = await fetch(url)
   if (!res.ok) {
