@@ -115,8 +115,11 @@ export default function AmplitudeTrend({ records, serviceThreshold, baseline }) 
     plugins: {
       legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 18 } },
       tooltip: {
+        // Only show the actual measured amplitude — hide the flat service line
+        // and the projection line, which carry no per-point meaning.
+        filter: item => item.dataset.label.startsWith('Amplitude'),
         callbacks: {
-          label: ctx => ctx.parsed.y != null ? `${ctx.dataset.label}: ${ctx.parsed.y}` : null
+          label: ctx => ctx.parsed.y != null ? `Amplitude: ${ctx.parsed.y}°` : null
         }
       },
       annotation: overhaulLabel ? {
