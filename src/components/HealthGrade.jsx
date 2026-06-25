@@ -1,14 +1,16 @@
 import React from 'react'
 
+// Grade tiers reflect mechanical condition, set by the weakest of three
+// indicators (amplitude, positional delta, beat error). See watchApi.js.
 const GRADE_CONFIG = {
-  EXCELLENT: { label: 'Excellent', color: '#10b981', bg: 'rgba(16,185,129,0.12)', desc: 'All metrics are within the reference range.' },
-  HEALTHY:   { label: 'Healthy', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', desc: 'Normal decay within the natural wear range.' },
-  GOOD:      { label: 'Good', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', desc: 'Keep an eye on the amplitude decline trend.' },
-  WARNING:   { label: 'Warning', color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  desc: 'Internal inspection recommended.' },
+  EXCELLENT: { label: 'Excellent', color: '#10b981', bg: 'rgba(16,185,129,0.12)', desc: 'All condition indicators are in the top band.' },
+  GOOD:      { label: 'Good', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', desc: 'All indicators within the healthy range.' },
+  FAIR:      { label: 'Fair', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', desc: 'An indicator is in the caution band — monitor it.' },
+  WARNING:   { label: 'Service', color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  desc: 'An indicator is below threshold — service recommended.' },
 }
 
-export default function HealthGrade({ grade, watchId, recordCount, lastMeasured }) {
-  const cfg = GRADE_CONFIG[grade] || GRADE_CONFIG.HEALTHY
+export default function HealthGrade({ grade, limiting, watchId, recordCount, lastMeasured }) {
+  const cfg = GRADE_CONFIG[grade] || GRADE_CONFIG.GOOD
   const lastDate = lastMeasured
     ? new Date(lastMeasured).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     : '—'
@@ -57,6 +59,11 @@ export default function HealthGrade({ grade, watchId, recordCount, lastMeasured 
         }}>
           {cfg.desc}
         </div>
+        {limiting && (
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>
+            Driven by <span style={{ color: '#94a3b8', fontWeight: 600 }}>{limiting.label}</span>: {limiting.value}{limiting.unit}
+          </div>
+        )}
       </div>
     </div>
   )

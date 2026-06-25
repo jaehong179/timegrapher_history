@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  fetchWatchHistory, monthlyDecayRate, projectOverhaulDate, DEFAULTS
+  fetchWatchHistory, computeHealth, DEFAULTS
 } from './api/watchApi.js'
 import HealthGrade from './components/HealthGrade.jsx'
 import MetricCard from './components/MetricCard.jsx'
@@ -16,20 +16,6 @@ function getWatchId() {
     window.location.pathname.split('/').filter(Boolean).pop() ||
     'DEMO-3235'
   )
-}
-
-// Health grade based on maxAbsRate (max daily rate across positions)
-function computeGrade(records, decay) {
-  const latest = records[0]
-  if (!latest) return 'HEALTHY'
-  const maxRate = latest.maxAbsRate ?? Math.abs(latest.summary?.rate ?? 0)
-  const amp     = latest.avgAmplitude ?? latest.summary?.amplitude ?? 999
-  const thr     = DEFAULTS.critical_threshold_amplitude
-
-  if (maxRate > 10 || amp < thr + 10) return 'WARNING'
-  if (maxRate > 5  || (decay != null && decay > 3.0)) return 'GOOD'
-  if (maxRate <= 2 && amp >= DEFAULTS.baseline_amplitude - 20) return 'EXCELLENT'
-  return 'HEALTHY'
 }
 
 export default function App() {
@@ -71,16 +57,12 @@ export default function App() {
   // Sort newest first
   const sorted  = [...records].sort((a, b) => new Date(b.measured_at) - new Date(a.measured_at))
   const latest  = sorted[0]
-  const decay   = monthlyDecayRate(sorted)
-  const grade   = computeGrade(sorted, decay)
-  const overhaul = projectOverhaulDate(sorted, DEFAULTS.critical_threshold_amplitude)
+  const health  = computeHealth(latest)
+  const grade   = health.grade
+  const limiting = health.limiting
 
-  // Data span
-  const times    = sorted.map(r => new Date(r.measured_at).getTime())
-  const spanDays = (Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24)
-
-  // Position anomaly flag
-  const hasPositionAnomaly = latest.maxAbsRate > 5
+  // Caution banner when the grade is limited by an indicator in caution/below range
+  const showCaution = limiting && limiting.level <= 2
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px 60px' }}>
@@ -104,27 +86,29 @@ export default function App() {
       <section style={{ marginBottom: 20 }}>
         <HealthGrade
           grade={grade}
+          limiting={limiting}
           watchId={watchId}
           recordCount={records.length}
           lastMeasured={latest.measured_at}
         />
       </section>
 
-      {/* Position anomaly banner */}
-      {hasPositionAnomaly && (
+      {/* Caution banner — explains the limiting indicator */}
+      {showCaution && (
         <div style={{
           marginBottom: 16, padding: '12px 16px',
-          background: 'rgba(245,158,11,0.08)',
-          border: '1px solid rgba(245,158,11,0.3)',
+          background: limiting.level === 1 ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
+          border: `1px solid ${limiting.level === 1 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
           borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-start'
         }}>
           <span style={{ fontSize: 16 }}>⚠️</span>
           <div>
-            <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, marginBottom: 2 }}>
-              Position Anomaly Detected
+            <div style={{ fontSize: 12, color: limiting.level === 1 ? '#ef4444' : '#f59e0b', fontWeight: 600, marginBottom: 2 }}>
+              {limiting.level === 1 ? 'Service Recommended' : 'Monitor This Indicator'}
             </div>
-            <div style={{ fontSize: 11, color: '#92400e' }}>
-              The latest measurement shows daily rate exceeding ±5 s/d in some positions. Please review the per-position values.
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>
+              Grade is limited by <strong>{limiting.label}</strong> at {limiting.value}{limiting.unit}
+              {' '}({limiting.level === 1 ? 'below threshold' : 'caution band'}). Review the per-position values below.
             </div>
           </div>
         </div>
@@ -137,56 +121,47 @@ export default function App() {
         gap: 10, marginBottom: 20
       }}>
         <MetricCard
+          label="Amplitude"
+          value={latest.horizontalAmplitude ?? '—'}
+          unit="°"
+          sub={`Horizontal · healthy ≥270° · service ≤${DEFAULTS.critical_threshold_amplitude}°`}
+          color={(latest.horizontalAmplitude ?? 999) < DEFAULTS.critical_threshold_amplitude ? '#ef4444'
+               : (latest.horizontalAmplitude ?? 999) < 270 ? '#f59e0b' : '#10b981'}
+          alert={(latest.horizontalAmplitude ?? 999) < DEFAULTS.critical_threshold_amplitude}
+        />
+        <MetricCard
+          label="Positional Δ"
+          value={`±${latest.positionalDelta?.toFixed(1) ?? '—'}`}
+          unit="s/d"
+          sub="Rate spread across positions · ≤15 good"
+          color={!latest.positionalDelta ? '#64748b' : latest.positionalDelta > 25 ? '#ef4444' : latest.positionalDelta > 15 ? '#f59e0b' : '#10b981'}
+          alert={latest.positionalDelta > 25}
+        />
+        <MetricCard
+          label="Beat Error"
+          value={latest.maxBeatError ?? '—'}
+          unit="ms"
+          sub="Max across positions · < 0.7ms good"
+          color={(latest.maxBeatError ?? 0) > 1.0 ? '#ef4444' : (latest.maxBeatError ?? 0) > 0.7 ? '#f59e0b' : '#10b981'}
+          alert={(latest.maxBeatError ?? 0) > 1.0}
+        />
+        <MetricCard
           label="Daily Rate (DU)"
           value={latest.summary?.rate != null
             ? (latest.summary.rate > 0 ? `+${latest.summary.rate}` : String(latest.summary.rate))
             : '—'}
           unit="s/d"
-          sub="Dial Up reference"
-          color={Math.abs(latest.summary?.rate ?? 0) > 5 ? '#ef4444' : '#10b981'}
-          alert={Math.abs(latest.summary?.rate ?? 0) > 10}
-        />
-        <MetricCard
-          label="Avg Amplitude"
-          value={latest.avgAmplitude ?? '—'}
-          unit="°"
-          sub={`Critical ${DEFAULTS.critical_threshold_amplitude}° / all-position avg`}
-          color={(latest.avgAmplitude ?? 999) < DEFAULTS.critical_threshold_amplitude + 20 ? '#f59e0b' : '#3b82f6'}
-        />
-        <MetricCard
-          label="Max Beat Error"
-          value={latest.summary?.beat_error ?? '—'}
-          unit="ms"
-          sub="Max across positions / < 0.3ms OK"
-          color={(latest.summary?.beat_error ?? 0) > 0.3 ? '#ef4444' : '#10b981'}
-          alert={(latest.summary?.beat_error ?? 0) > 0.5}
-        />
-        <MetricCard
-          label="Max Position Spread"
-          value={`±${latest.maxAbsRate?.toFixed(1) ?? '—'}`}
-          unit="s/d"
-          sub="Max absolute across positions"
-          color={!latest.maxAbsRate ? '#64748b' : latest.maxAbsRate > 10 ? '#ef4444' : latest.maxAbsRate > 5 ? '#f59e0b' : '#10b981'}
-          alert={latest.maxAbsRate > 10}
+          sub="Accuracy / regulation — not health"
+          color="#3b82f6"
         />
       </section>
 
       {/* Amplitude Trend */}
       <section style={cardStyle}>
         <SectionTitle>Amplitude Trend</SectionTitle>
-        {spanDays < DEFAULTS.min_projection_days && (
-          <div style={{
-            fontSize: 11, color: '#f59e0b',
-            background: 'rgba(245,158,11,0.08)', borderRadius: 6,
-            padding: '6px 10px', marginBottom: 14,
-            border: '1px solid rgba(245,158,11,0.2)'
-          }}>
-            ⚠ Measurement span is only {Math.round(spanDays)} days. Decay projection requires at least 30 days of data.
-          </div>
-        )}
         <AmplitudeTrend
           records={sorted}
-          criticalThreshold={DEFAULTS.critical_threshold_amplitude}
+          serviceThreshold={DEFAULTS.critical_threshold_amplitude}
           baseline={DEFAULTS.baseline_amplitude}
         />
       </section>
