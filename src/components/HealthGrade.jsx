@@ -26,16 +26,17 @@ export default function HealthGrade({ grade, watchId, recordCount, lastMeasured 
     }}>
       {/* Grade badge */}
       <div style={{
-        width: 84, height: 84, borderRadius: '50%',
+        width: 96, height: 96, borderRadius: '50%',
         background: cfg.bg,
         border: `2px solid ${cfg.color}`,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,
+        padding: 6,
         boxShadow: `0 0 20px ${cfg.color}35`
       }}>
         <span style={{ fontSize: 9, color: cfg.color, fontWeight: 600, letterSpacing: 1, opacity: 0.7 }}>GRADE</span>
-        <span style={{ fontSize: 20, color: cfg.color, fontWeight: 700, lineHeight: 1.3 }}>{cfg.label}</span>
+        <span style={{ fontSize: 15, color: cfg.color, fontWeight: 700, lineHeight: 1.2, textAlign: 'center' }}>{cfg.label}</span>
       </div>
 
       {/* Info */}

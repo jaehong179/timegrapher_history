@@ -74,17 +74,6 @@ function SessionCard({ record, isLatest }) {
       {open && (
         <div style={{ padding: '0 20px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
 
-          {/* Comment */}
-          {record.comment && (
-            <div style={{
-              marginTop: 12, padding: '10px 12px',
-              background: 'rgba(255,255,255,0.03)', borderRadius: 8,
-              borderLeft: '2px solid rgba(59,130,246,0.4)'
-            }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>{record.comment}</div>
-            </div>
-          )}
-
           {/* Position table */}
           {Object.keys(m).length > 0 && (
             <div style={{ marginTop: 12 }}>
