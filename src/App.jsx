@@ -131,7 +131,11 @@ export default function App() {
       )}
 
       {/* Metric Cards */}
-      <section style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <section style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: 10, marginBottom: 20
+      }}>
         <MetricCard
           label="Daily Rate (DU)"
           value={latest.summary?.rate != null
