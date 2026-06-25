@@ -18,7 +18,7 @@ function AnomalyBadge({ record }) {
     <span style={{
       fontSize: 10, background: 'rgba(239,68,68,0.15)', color: '#ef4444',
       borderRadius: 5, padding: '1px 7px', fontWeight: 600
-    }}>⚠ 이상감지</span>
+    }}>⚠ Anomaly</span>
   )
   return null
 }
@@ -26,8 +26,8 @@ function AnomalyBadge({ record }) {
 function SessionCard({ record, isLatest }) {
   const [open, setOpen] = useState(isLatest)
   const date = new Date(record.measured_at)
-  const dateStr = date.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })
-  const timeStr = date.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })
+  const dateStr = date.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+  const timeStr = date.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })
   const m = record.measurements || {}
   const hasAnomaly = Math.abs(record.summary?.rate ?? 0) > 10
 
@@ -51,19 +51,19 @@ function SessionCard({ record, isLatest }) {
             <span style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>{dateStr}</span>
             <span style={{ fontSize: 11, color: '#475569' }}>{timeStr}</span>
             {isLatest && (
-              <span style={{ fontSize: 10, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>최신</span>
+              <span style={{ fontSize: 10, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>Latest</span>
             )}
             <AnomalyBadge record={record} />
           </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#64748b' }}>
-              일오차(DU) <RateDisplay rate={record.summary?.rate} />
+              Rate (DU) <RateDisplay rate={record.summary?.rate} />
             </span>
             <span style={{ fontSize: 12, color: '#64748b' }}>
-              진각 <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{record.summary?.amplitude ?? '—'}°</span>
+              Amplitude <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{record.summary?.amplitude ?? '—'}°</span>
             </span>
             <span style={{ fontSize: 12, color: '#64748b' }}>
-              비트오차 <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{record.summary?.beat_error ?? '—'} ms</span>
+              Beat Error <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{record.summary?.beat_error ?? '—'} ms</span>
             </span>
           </div>
         </div>
@@ -74,21 +74,14 @@ function SessionCard({ record, isLatest }) {
       {open && (
         <div style={{ padding: '0 20px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
 
-          {/* Engineer / Comment */}
-          {(record.engineer || record.comment) && (
+          {/* Comment */}
+          {record.comment && (
             <div style={{
               marginTop: 12, padding: '10px 12px',
               background: 'rgba(255,255,255,0.03)', borderRadius: 8,
               borderLeft: '2px solid rgba(59,130,246,0.4)'
             }}>
-              {record.engineer && (
-                <div style={{ fontSize: 11, color: '#60a5fa', fontWeight: 500, marginBottom: 3 }}>
-                  👨‍🔧 {record.engineer}
-                </div>
-              )}
-              {record.comment && (
-                <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>{record.comment}</div>
-              )}
+              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>{record.comment}</div>
             </div>
           )}
 
@@ -96,12 +89,12 @@ function SessionCard({ record, isLatest }) {
           {Object.keys(m).length > 0 && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 11, color: '#475569', marginBottom: 8, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                자세별 측정값
+                Per-Position Measurements
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                 <thead>
                   <tr>
-                    {['코드', '자세', '일오차', '진각', '비트오차'].map(h => (
+                    {['Code', 'Position', 'Rate', 'Amplitude', 'Beat Error'].map(h => (
                       <th key={h} style={{
                         textAlign: 'left', color: '#475569', padding: '3px 10px 6px 0',
                         fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.06)'

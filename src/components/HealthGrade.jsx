@@ -1,16 +1,16 @@
 import React from 'react'
 
 const GRADE_CONFIG = {
-  EXCELLENT: { label: '최상', color: '#10b981', bg: 'rgba(16,185,129,0.12)', desc: '모든 지표가 기준 범위 내에 있습니다.' },
-  HEALTHY:   { label: '정상', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', desc: '자연적 열화 범위 내 정상 감쇠 중입니다.' },
-  GOOD:      { label: '양호', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', desc: '진각 감소 추이를 주시하세요.' },
-  WARNING:   { label: '주의', color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  desc: '내부 정밀 검사 권장.' },
+  EXCELLENT: { label: 'Excellent', color: '#10b981', bg: 'rgba(16,185,129,0.12)', desc: 'All metrics are within the reference range.' },
+  HEALTHY:   { label: 'Healthy', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', desc: 'Normal decay within the natural wear range.' },
+  GOOD:      { label: 'Good', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', desc: 'Keep an eye on the amplitude decline trend.' },
+  WARNING:   { label: 'Warning', color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  desc: 'Internal inspection recommended.' },
 }
 
-export default function HealthGrade({ grade, watchId, recordCount, lastMeasured, lastEngineer }) {
+export default function HealthGrade({ grade, watchId, recordCount, lastMeasured }) {
   const cfg = GRADE_CONFIG[grade] || GRADE_CONFIG.HEALTHY
   const lastDate = lastMeasured
-    ? new Date(lastMeasured).toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })
+    ? new Date(lastMeasured).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     : '—'
 
   return (
@@ -47,8 +47,7 @@ export default function HealthGrade({ grade, watchId, recordCount, lastMeasured,
           }}>{watchId}</h1>
         </div>
         <div style={{ fontSize: 11, color: '#475569', marginBottom: 10 }}>
-          최근 측정: {lastDate} &nbsp;·&nbsp; 총 {recordCount}건
-          {lastEngineer && <span> &nbsp;·&nbsp; 담당: {lastEngineer}</span>}
+          Last measured: {lastDate} &nbsp;·&nbsp; {recordCount} records
         </div>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,

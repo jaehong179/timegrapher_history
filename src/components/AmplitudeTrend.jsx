@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React from 'react'
 import {
   Chart as ChartJS, CategoryScale, LinearScale,
   PointElement, LineElement, Title, Tooltip, Legend, Filler
@@ -6,7 +6,6 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { Line } from 'react-chartjs-2'
 import { linearRegression, projectOverhaulDate } from '../api/watchApi.js'
-import RadarPopup from './RadarPopup.jsx'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -19,8 +18,6 @@ function fmt(iso) {
 }
 
 export default function AmplitudeTrend({ records, criticalThreshold, baseline }) {
-  const [popup, setPopup] = useState(null)
-
   // Sorted ascending
   const sorted = [...records].sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
 
@@ -81,7 +78,7 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
     labels: reg && overhaulDate ? projLabels : labels,
     datasets: [
       {
-        label: '진각 (°)',
+        label: 'Amplitude (°)',
         data: reg && overhaulDate ? actualData : ampValues,
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59,130,246,0.06)',
@@ -94,7 +91,7 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
         order: 1
       },
       ...(reg && overhaulDate ? [{
-        label: '감쇠 예측선',
+        label: 'Decay Projection',
         data: regressionLine,
         borderColor: 'rgba(148,163,184,0.35)',
         borderDash: [6, 4],
@@ -104,7 +101,7 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
         order: 2
       }] : []),
       {
-        label: `임계선 ${criticalThreshold}°`,
+        label: `Critical ${criticalThreshold}°`,
         data: thresholdData,
         borderColor: 'rgba(239,68,68,0.45)',
         borderDash: [4, 4],
@@ -124,14 +121,8 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
     plugins: {
       legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 18 } },
       tooltip: {
-        enabled: false,
-        external: ({ chart, tooltip }) => {
-          if (tooltip.opacity === 0) { setPopup(null); return }
-          const lbl = chart.data.labels[tooltip.dataPoints?.[0]?.dataIndex]
-          const rec = sorted.find(r => fmt(r.measured_at) === lbl)
-          if (!rec) { setPopup(null); return }
-          const rect = chart.canvas.getBoundingClientRect()
-          setPopup({ x: rect.left + tooltip.caretX, y: rect.top + tooltip.caretY, record: rec })
+        callbacks: {
+          label: ctx => ctx.parsed.y != null ? `${ctx.dataset.label}: ${ctx.parsed.y}` : null
         }
       },
       annotation: overhaulLabel ? {
@@ -145,7 +136,7 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
             borderDash: [4, 4],
             label: {
               display: true,
-              content: `⚙ 예상 오버홀 ${overhaulDate.toLocaleDateString('ko-KR', { year:'numeric', month:'short' })}`,
+              content: `⚙ Est. Overhaul ${overhaulDate.toLocaleDateString('en-US', { year:'numeric', month:'short' })}`,
               color: '#ef4444',
               backgroundColor: 'rgba(239,68,68,0.1)',
               borderRadius: 4,
@@ -186,22 +177,13 @@ export default function AmplitudeTrend({ records, criticalThreshold, baseline })
           <span style={{ fontSize: 18 }}>⚙</span>
           <div>
             <div style={{ fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
-              예상 오버홀 시점: {overhaulDate.toLocaleDateString('ko-KR', { year:'numeric', month:'long' })}
+              Estimated Overhaul: {overhaulDate.toLocaleDateString('en-US', { year:'numeric', month:'long' })}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-              현재 감쇠 기울기 기준 진각 {criticalThreshold}° 임계선 도달 예상
+              Projected to reach the {criticalThreshold}° critical amplitude at the current decay slope
             </div>
           </div>
         </div>
-      )}
-
-      {popup && (
-        <RadarPopup
-          record={popup.record}
-          x={popup.x}
-          y={popup.y}
-          onClose={() => setPopup(null)}
-        />
       )}
     </div>
   )

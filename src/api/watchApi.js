@@ -5,7 +5,7 @@ export const BASE_URL =
 export const DEFAULTS = {
   critical_threshold_amplitude: 220,
   baseline_amplitude: 290,
-  min_projection_days: 30,   // 이 기간 미만이면 오버홀 예측 안 함
+  min_projection_days: 30,   // below this span, no overhaul projection
 }
 
 export const POSITION_LABELS = {
@@ -17,10 +17,10 @@ export const POSITION_LABELS = {
   CR: 'Crown Right',
 }
 
-// ── Mock (DEMO 전용) ──────────────────────────────────────────────────────────
+// ── Mock (DEMO only) ──────────────────────────────────────────────────────────
 const MOCK_HISTORY = [
   {
-    watch_id: 'DEMO-3235', engineer: '박기사', comment: '오버홀 1년 차 점검.',
+    watch_id: 'DEMO-3235', comment: 'One-year post-overhaul check.',
     measured_at: '2025-05-02T10:14:00+00:00',
     measurements: {
       DU: { rate: 1.2,  amplitude: 285, beat_error: 0.1 },
@@ -32,7 +32,7 @@ const MOCK_HISTORY = [
     }
   },
   {
-    watch_id: 'DEMO-3235', engineer: '박기사', comment: '자성 유입 의심. 자성제거기 사용 후 재측정 완료.',
+    watch_id: 'DEMO-3235', comment: 'Suspected magnetization. Re-measured after demagnetizing.',
     measured_at: '2025-08-15T14:22:00+00:00',
     measurements: {
       DU: { rate: 14.2, amplitude: 278, beat_error: 0.1 },
@@ -44,7 +44,7 @@ const MOCK_HISTORY = [
     }
   },
   {
-    watch_id: 'DEMO-3235', engineer: '박기사', comment: '겨울철 기온 저하로 인한 오일 점도 변화.',
+    watch_id: 'DEMO-3235', comment: 'Oil viscosity shift due to lower winter temperatures.',
     measured_at: '2025-12-10T09:05:00+00:00',
     measurements: {
       DU: { rate: 2.1,  amplitude: 270, beat_error: 0.1 },
@@ -56,7 +56,7 @@ const MOCK_HISTORY = [
     }
   },
   {
-    watch_id: 'DEMO-3235', engineer: '김기사', comment: '진각이 조금 떨어졌으나 일오차는 양호.',
+    watch_id: 'DEMO-3235', comment: 'Amplitude dropped slightly but daily rate remains good.',
     measured_at: '2026-06-19T15:30:00+00:00',
     measurements: {
       DU: { rate: 1.0,  amplitude: 255, beat_error: 0.1 },
@@ -69,22 +69,22 @@ const MOCK_HISTORY = [
   }
 ]
 
-// ── normalize: 요약값 + 이상감지 플래그 추가 ──────────────────────────────────
+// ── normalize: add summary values + anomaly flags ─────────────────────────────
 export function normalize(record) {
   const m   = record.measurements || {}
   const pos = Object.values(m)
   if (pos.length === 0) return { ...record, summary: { rate: null, amplitude: null, beat_error: null }, maxAbsRate: 0, avgAmplitude: null }
 
-  // DU 우선, 없으면 DD, 없으면 첫 번째
+  // Prefer DU, then DD, else first
   const primary = m.DU || m.DD || pos[0]
 
-  // 전 자세 평균 진각
+  // Average amplitude across positions
   const avgAmplitude = pos.reduce((s, p) => s + (p.amplitude ?? 0), 0) / pos.length
 
-  // 전 자세 최대 절댓값 일오차 (이상감지용)
+  // Max absolute daily rate across positions (for anomaly detection)
   const maxAbsRate = pos.reduce((max, p) => Math.max(max, Math.abs(p.rate ?? 0)), 0)
 
-  // 전 자세 최대 비트오차
+  // Max beat error across positions
   const maxBeatError = pos.reduce((max, p) => Math.max(max, p.beat_error ?? 0), 0)
 
   return {
@@ -117,7 +117,7 @@ export function linearRegression(points) {
 export function projectOverhaulDate(records, threshold) {
   if (records.length < 2) return null
 
-  // 기간 확인: 최소 30일 이상 데이터가 있어야 예측
+  // Require at least 30 days of data to project
   const times = records.map(r => new Date(r.measured_at).getTime())
   const spanDays = (Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24)
   if (spanDays < DEFAULTS.min_projection_days) return null
@@ -139,7 +139,7 @@ export function monthlyDecayRate(records) {
   if (records.length < 2) return null
   const times = records.map(r => new Date(r.measured_at).getTime())
   const spanDays = (Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24)
-  if (spanDays < 7) return null   // 7일 미만 데이터로는 의미 없음
+  if (spanDays < 7) return null   // not meaningful with less than 7 days of data
 
   const points = records.map(r => ({
     x: new Date(r.measured_at).getTime(),
